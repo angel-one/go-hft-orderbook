@@ -9,14 +9,14 @@ import (
 // Average runtine for search-based operations estimated as 1*lgN
 
 type nodeRedBlack struct {
-	Key float64
+	Key   float64
 	Value *LimitOrder
-	Next *nodeRedBlack
-	Prev *nodeRedBlack
-	
-	left *nodeRedBlack
+	Next  *nodeRedBlack
+	Prev  *nodeRedBlack
+
+	left  *nodeRedBlack
 	right *nodeRedBlack
-	size int
+	size  int
 	isRed bool
 }
 
@@ -151,8 +151,8 @@ func (t *redBlackBST) put(n *nodeRedBlack, key float64, value *LimitOrder) *node
 		// search miss, creating a new node with a red link as a part of 3- or 4-node
 		n := &nodeRedBlack{
 			Value: value,
-			Key: key,
-			size: 1,
+			Key:   key,
+			size:  1,
 			isRed: true,
 		}
 
@@ -181,7 +181,7 @@ func (t *redBlackBST) put(n *nodeRedBlack, key float64, value *LimitOrder) *node
 			// new node has been just inserted to the left
 			prev := n.Prev
 			if prev != nil {
-				prev.Next = n.left	
+				prev.Next = n.left
 			}
 			n.left.Prev = prev
 			n.left.Next = n
@@ -237,7 +237,7 @@ func (t *redBlackBST) height(n *nodeRedBlack) int {
 
 	lheight := t.height(n.left)
 	rheight := t.height(n.right)
-	
+
 	height := lheight
 	if rheight > lheight {
 		height = rheight
@@ -460,7 +460,7 @@ func (t *redBlackBST) moveRedLeft(n *nodeRedBlack) *nodeRedBlack {
 	if t.isRed(n.right.left) {
 		n.right = t.rotateRight(n.right)
 		// now n.right and n.right.right are red, fixing that by rotating n
-		n = t.rotateLeft(n) 
+		n = t.rotateLeft(n)
 		// now n.right, n.right.right and n.left are red
 
 		t.flipColors(n)
@@ -496,10 +496,14 @@ func (t *redBlackBST) deleteMin(n *nodeRedBlack) *nodeRedBlack {
 		}
 		n.Next = nil
 		n.Prev = nil
-		
+
 		// updating global min
 		if t.minC == n {
 			t.minC = next
+		}
+
+		if t.maxC == n {
+			t.maxC = prev
 		}
 
 		return n.right
@@ -552,7 +556,7 @@ func (t *redBlackBST) DeleteMax() {
 	}
 	t.root = t.deleteMax(t.root)
 	if !t.IsEmpty() {
-		t.root.isRed = false;
+		t.root.isRed = false
 	}
 }
 
@@ -588,7 +592,7 @@ func (t *redBlackBST) deleteMax(n *nodeRedBlack) *nodeRedBlack {
 	}
 
 	n.right = t.deleteMax(n.right)
-	
+
 	// balancing back on the way from bottom to top
 	if t.isRed(n.right) {
 		n = t.rotateLeft(n)
@@ -612,7 +616,7 @@ func (t *redBlackBST) Delete(key float64) {
 	}
 	t.root = t.delete(t.root, key)
 	if !t.IsEmpty() {
-		t.root.isRed = false;
+		t.root.isRed = false
 	}
 }
 
@@ -637,7 +641,7 @@ func (t *redBlackBST) delete(n *nodeRedBlack, key float64) *nodeRedBlack {
 		}
 		if n.Key == key && n.right == nil {
 			// search hit and we don't have right sub-tree
-			
+
 			// updating linked list
 			next := n.Next
 			prev := n.Prev
@@ -672,7 +676,7 @@ func (t *redBlackBST) delete(n *nodeRedBlack, key float64) *nodeRedBlack {
 			n.Value = rightMin.Value
 			n.right = t.deleteMin(n.right)
 
-			// global min will be updated automatically if requied, 
+			// global min will be updated automatically if requied,
 			// as we copy values from successor
 		} else {
 			if n.right == nil {
@@ -720,7 +724,7 @@ func (t *redBlackBST) keys(n *nodeRedBlack, lo, hi float64) []float64 {
 
 	l := t.keys(n.left, lo, hi)
 	r := t.keys(n.right, lo, hi)
-	
+
 	keys := make([]float64, 0)
 	if l != nil {
 		keys = append(keys, l...)
