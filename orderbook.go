@@ -9,20 +9,20 @@ import (
 const MaxLimitsNum int = 10000
 
 type OrderDepth struct {
-	Price      float64
-	Volume     float64
-	OrderCount int
-	isBuyDepth bool
+	Price      int64
+	Volume     int64
+	OrderCount int16
 }
 
 type Orderbook struct {
-	Bids           *redBlackBST
-	Asks           *redBlackBST
-	IdToOrderMap   map[int]*Order
-	bidLimitsCache map[float64]*LimitOrder
-	askLimitsCache map[float64]*LimitOrder
-	pool           *sync.Pool
-	TotalVolume    float64
+	Bids            *redBlackBST
+	Asks            *redBlackBST
+	IdToOrderMap    map[int]*Order
+	bidLimitsCache  map[int64]*LimitOrder
+	askLimitsCache  map[int64]*LimitOrder
+	pool            *sync.Pool
+	TotalBuyVolume  int64
+	TotalSellVolume int64
 }
 
 func NewOrderbook() Orderbook {
@@ -33,8 +33,8 @@ func NewOrderbook() Orderbook {
 		Asks: &asks,
 
 		IdToOrderMap:   make(map[int]*Order),
-		bidLimitsCache: make(map[float64]*LimitOrder, MaxLimitsNum),
-		askLimitsCache: make(map[float64]*LimitOrder, MaxLimitsNum),
+		bidLimitsCache: make(map[int64]*LimitOrder, MaxLimitsNum),
+		askLimitsCache: make(map[int64]*LimitOrder, MaxLimitsNum),
 		pool: &sync.Pool{
 			New: func() interface{} {
 				limit := NewLimitOrder(0.0)
@@ -44,7 +44,7 @@ func NewOrderbook() Orderbook {
 	}
 }
 
-func (this *Orderbook) Add(price float64, o *Order) {
+func (this *Orderbook) Add(price int64, o *Order) {
 	var limit *LimitOrder
 
 	if o.BidOrAsk {
@@ -68,12 +68,17 @@ func (this *Orderbook) Add(price float64, o *Order) {
 		}
 	}
 	this.IdToOrderMap[o.Id] = o
-	this.TotalVolume += o.Volume
+	if o.BidOrAsk {
+		this.TotalBuyVolume += o.Volume
+	} else {
+		this.TotalSellVolume += o.Volume
+	}
+
 	// add order to the limit
 	limit.Enqueue(o)
 }
 
-func (this *Orderbook) Modify(price float64, o *Order) {
+func (this *Orderbook) Modify(price int64, o *Order) {
 	if _, ok := this.IdToOrderMap[o.Id]; !ok {
 		return
 	}
@@ -84,7 +89,7 @@ func (this *Orderbook) Modify(price float64, o *Order) {
 
 // buy=bid
 // ask=sell
-func (this *Orderbook) Execute(price float64, buyOrder, sellOrder *Order) {
+func (this *Orderbook) Execute(price int64, buyOrder, sellOrder *Order) {
 	if orderBid, ok := this.IdToOrderMap[buyOrder.Id]; ok {
 		this.Cancel(orderBid)
 		if orderBid.Volume > buyOrder.Volume {
@@ -118,25 +123,33 @@ func (this *Orderbook) Cancel(order *Order) {
 			// put it back to the pool
 			this.pool.Put(limit)
 		}
-		this.TotalVolume -= o.Volume
+		if o.BidOrAsk {
+			this.TotalBuyVolume -= o.Volume
+		} else {
+			this.TotalSellVolume -= o.Volume
+		}
 		delete(this.IdToOrderMap, o.Id)
 	}
 
 }
 
-func (this *Orderbook) GetTotalOrderVolume() float64 {
-	return this.TotalVolume
+func (this *Orderbook) GetTotalBuyOrderVolume() int64 {
+	return this.TotalBuyVolume
 }
 
-func (this *Orderbook) ClearBidLimit(price float64) {
+func (this *Orderbook) GetTotalSellOrderVolume() int64 {
+	return this.TotalSellVolume
+}
+
+func (this *Orderbook) ClearBidLimit(price int64) {
 	this.clearLimit(price, true)
 }
 
-func (this *Orderbook) ClearAskLimit(price float64) {
+func (this *Orderbook) ClearAskLimit(price int64) {
 	this.clearLimit(price, false)
 }
 
-func (this *Orderbook) clearLimit(price float64, bidOrAsk bool) {
+func (this *Orderbook) clearLimit(price int64, bidOrAsk bool) {
 	var limit *LimitOrder
 	if bidOrAsk {
 		limit = this.bidLimitsCache[price]
@@ -151,7 +164,7 @@ func (this *Orderbook) clearLimit(price float64, bidOrAsk bool) {
 	limit.Clear()
 }
 
-func (this *Orderbook) DeleteBidLimit(price float64) {
+func (this *Orderbook) DeleteBidLimit(price int64) {
 	limit := this.bidLimitsCache[price]
 	if limit == nil {
 		return
@@ -166,7 +179,7 @@ func (this *Orderbook) DeleteBidLimit(price float64) {
 
 }
 
-func (this *Orderbook) DeleteAskLimit(price float64) {
+func (this *Orderbook) DeleteAskLimit(price int64) {
 	limit := this.askLimitsCache[price]
 	if limit == nil {
 		return
@@ -180,7 +193,7 @@ func (this *Orderbook) DeleteAskLimit(price float64) {
 	this.pool.Put(limit)
 }
 
-func (this *Orderbook) deleteLimit(price float64, bidOrAsk bool) {
+func (this *Orderbook) deleteLimit(price int64, bidOrAsk bool) {
 	if bidOrAsk {
 		this.Bids.Delete(price)
 	} else {
@@ -188,7 +201,7 @@ func (this *Orderbook) deleteLimit(price float64, bidOrAsk bool) {
 	}
 }
 
-func (this *Orderbook) GetVolumeAtBidLimit(price float64) float64 {
+func (this *Orderbook) GetVolumeAtBidLimit(price int64) int64 {
 	limit := this.bidLimitsCache[price]
 	if limit == nil {
 		return 0
@@ -196,7 +209,7 @@ func (this *Orderbook) GetVolumeAtBidLimit(price float64) float64 {
 	return limit.TotalVolume()
 }
 
-func (this *Orderbook) GetVolumeAtAskLimit(price float64) float64 {
+func (this *Orderbook) GetVolumeAtAskLimit(price int64) int64 {
 	limit := this.askLimitsCache[price]
 	if limit == nil {
 		return 0
@@ -204,7 +217,7 @@ func (this *Orderbook) GetVolumeAtAskLimit(price float64) float64 {
 	return limit.TotalVolume()
 }
 
-func (this *Orderbook) GetBest20(isBuyDepth bool) []OrderDepth {
+func (this *Orderbook) getBest20(isBuyDepth bool) []OrderDepth {
 	var nodePointer *nodeRedBlack
 	if isBuyDepth {
 		if this.Bids == nil || this.Bids.IsEmpty() {
@@ -223,14 +236,12 @@ func (this *Orderbook) GetBest20(isBuyDepth bool) []OrderDepth {
 	depthList := make([]OrderDepth, 20)
 
 	for i := 0; i < 20; i++ {
-		depth := OrderDepth{
-			isBuyDepth: isBuyDepth,
-		}
+		depth := OrderDepth{}
 		if nodePointer != nil {
 			limit := nodePointer.Value
 			depth.Price = limit.Price
 			depth.Volume = limit.totalVolume
-			depth.OrderCount = limit.Size()
+			depth.OrderCount = int16(limit.Size())
 			if isBuyDepth {
 				nodePointer = nodePointer.Prev
 			} else {
@@ -243,11 +254,11 @@ func (this *Orderbook) GetBest20(isBuyDepth bool) []OrderDepth {
 }
 
 func (this *Orderbook) GetBest20Bid() []OrderDepth {
-	return this.GetBest20(true)
+	return this.getBest20(true)
 }
 
 func (this *Orderbook) GetBest20Offer() []OrderDepth {
-	return this.GetBest20(false)
+	return this.getBest20(false)
 }
 
 func (this *Orderbook) BLength() int {
