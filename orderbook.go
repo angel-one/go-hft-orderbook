@@ -217,25 +217,25 @@ func (this *Orderbook) GetVolumeAtAskLimit(price int64) int64 {
 	return limit.TotalVolume()
 }
 
-func (this *Orderbook) getBest20(isBuyDepth bool) []OrderDepth {
+func (this *Orderbook) getBest20(n int, isBuyDepth bool) []OrderDepth {
+	depthList := make([]OrderDepth, n)
 	var nodePointer *nodeRedBlack
 	if isBuyDepth {
 		if this.Bids == nil || this.Bids.IsEmpty() {
-			return nil
+			return depthList
 		}
 		nodePointer = this.Bids.MaxPointer()
 	} else {
 		if this.Asks == nil || this.Asks.IsEmpty() {
-			return nil
+			return depthList
 		}
 		nodePointer = this.Asks.MinPointer()
 	}
 	if nodePointer == nil {
-		return nil
+		return depthList
 	}
-	depthList := make([]OrderDepth, 20)
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < n; i++ {
 		depth := OrderDepth{}
 		if nodePointer != nil {
 			limit := nodePointer.Value
@@ -253,12 +253,12 @@ func (this *Orderbook) getBest20(isBuyDepth bool) []OrderDepth {
 	return depthList
 }
 
-func (this *Orderbook) GetBest20Bid() []OrderDepth {
-	return this.getBest20(true)
+func (this *Orderbook) GetNBestBid(n int) []OrderDepth {
+	return this.getBest20(n, true)
 }
 
-func (this *Orderbook) GetBest20Offer() []OrderDepth {
-	return this.getBest20(false)
+func (this *Orderbook) GetNBestOffer(n int) []OrderDepth {
+	return this.getBest20(n, false)
 }
 
 func (this *Orderbook) BLength() int {
