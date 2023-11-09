@@ -2,21 +2,21 @@ package hftorderbook
 
 // Limit price orders combined as a FIFO queue
 type LimitOrder struct {
-	Price float64
-	
-	orders *ordersQueue
-	totalVolume float64
+	Price int64
+
+	orders      *ordersQueue
+	totalVolume int64
 }
 
-func NewLimitOrder(price float64) LimitOrder {
+func NewLimitOrder(price int64) LimitOrder {
 	q := NewOrdersQueue()
 	return LimitOrder{
-		Price: price,
+		Price:  price,
 		orders: &q,
 	}
 }
 
-func (this *LimitOrder) TotalVolume() float64 {
+func (this *LimitOrder) TotalVolume() int64 {
 	return this.totalVolume
 }
 
