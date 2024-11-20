@@ -14,6 +14,13 @@ type OrderDepth struct {
 	OrderCount int16
 }
 
+type DepthRank struct {
+	VolumeAhead int64
+	TotalVolume int64
+	DepthLevel  int64
+	TotalDepth  int64
+}
+
 type Orderbook struct {
 	Bids            *redBlackBST
 	Asks            *redBlackBST
@@ -267,4 +274,50 @@ func (this *Orderbook) BLength() int {
 
 func (this *Orderbook) ALength() int {
 	return len(this.askLimitsCache)
+}
+
+func (this *Orderbook) GetDepthRank(price int64, isBuyDepth bool) DepthRank {
+	depthRank := DepthRank{
+		VolumeAhead: 0,
+		TotalVolume: 0,
+		DepthLevel:  0,
+		TotalDepth:  0,
+	}
+	var nodePointer *nodeRedBlack
+	if isBuyDepth {
+		if this.Bids == nil || this.Bids.IsEmpty() {
+			return depthRank
+		}
+		nodePointer = this.Bids.MaxPointer()
+	} else {
+		if this.Asks == nil || this.Asks.IsEmpty() {
+			return depthRank
+		}
+		nodePointer = this.Asks.MinPointer()
+	}
+	if nodePointer == nil {
+		return depthRank
+	}
+
+	for nodePointer != nil {
+		if nodePointer != nil {
+			limit := nodePointer.Value
+			depthRank.TotalVolume += limit.totalVolume
+			depthRank.TotalDepth++
+			if isBuyDepth {
+				if limit.Price >= price {
+					depthRank.VolumeAhead += limit.totalVolume
+					depthRank.DepthLevel++
+				}
+				nodePointer = nodePointer.Prev
+			} else {
+				if limit.Price <= price {
+					depthRank.VolumeAhead += limit.totalVolume
+					depthRank.DepthLevel++
+				}
+				nodePointer = nodePointer.Next
+			}
+		}
+	}
+	return depthRank
 }
